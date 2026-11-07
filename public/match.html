@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Match — ValentineBet</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="container">
+    <a href="/dashboard" class="small">← Back to dashboard</a>
+    <div class="grid grid-2" style="margin-top:1rem">
+      <div id="matchbox"></div>
+      <div class="card">
+        <h2>💬 Match discussion</h2>
+        <p class="muted small">Comments are public. BetBuddy AI reads them when you ask it about this match.</p>
+        <div id="comments"></div>
+        <form id="cf" style="margin-top:1rem">
+          <textarea name="text" placeholder="Share your prediction..." maxlength="4000" required></textarea>
+          <div class="row" style="margin-top:.5rem"><button class="btn-primary">Post comment</button><span class="error" id="cerr"></span></div>
+        </form>
+      </div>
+    </div>
+  </div>
+  <script src="/js/common.js"></script>
+  <script>
+    const id = App.qs('id');
+    let match;
+    async function load() {
+      const r = await App.api('/api/matches/' + encodeURIComponent(id));
+      match = r.match;
+      document.title = `${match.teamA} vs ${match.teamB} — ValentineBet`;
+      document.getElementById('matchbox').innerHTML = App.matchCard(match) +
+        `<div class="card" style="margin-top:1rem"><h3>🤖 Ask the AI about this match</h3>
+         <p class="muted small">Try: “summarise the discussion for match ${match.id}”</p>
+         <a class="btn" href="/assistant?q=${encodeURIComponent('Summarise the discussion for match ' + match.id)}">Ask BetBuddy</a></div>`;
+      const box = document.getElementById('comments');
+      box.innerHTML = r.comments.length ? r.comments.map(c => `<div class="comment">
+        <div class="row space"><a class="who" href="/profile?u=${encodeURIComponent(c.username)}">@${App.esc(c.username)}</a><span class="muted small">${App.fmtTime(c.createdAt)}</span></div>
+        <div class="text">${App.esc(c.text)}</div></div>`).join('') : '<div class="empty">No comments yet — be the first.</div>';
+    }
+    App.requireAuth().then(() => {
+      App.bindOdds(document.getElementById('matchbox'), () => [match]);
+      load().catch(e => document.getElementById('matchbox').innerHTML = `<div class="card error">${App.esc(e.message)}</div>`);
+      setInterval(() => { if (!document.querySelector('.modal-bg.open') && document.activeElement.tagName !== 'TEXTAREA') load(); }, 5000);
+      document.getElementById('cf').onsubmit = async e => {
+        e.preventDefault();
+        try {
+          await App.api(`/api/matches/${id}/comments`, { method: 'POST', body: { text: e.target.text.value } });
+          e.target.reset();
+          load();
+        } catch (err) { document.getElementById('cerr').textContent = err.message; }
+      };
+    });
+  </script>
+</body>
+</html>

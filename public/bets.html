@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>My Bets — ValentineBet</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>🎟️ My bets</h1>
+    <p class="muted">Bets marked <span class="badge ai">AI</span> were placed by BetBuddy on your behalf — check these after an injection test.</p>
+    <div class="card table-wrap">
+      <table>
+        <thead><tr><th>#</th><th>Match</th><th>Pick</th><th>Stake</th><th>Odds</th><th>Status</th><th>Payout</th><th>Placed by</th><th>Time</th></tr></thead>
+        <tbody id="tb"></tbody>
+      </table>
+    </div>
+  </div>
+  <script src="/js/common.js"></script>
+  <script>
+    async function load() {
+      const { bets } = await App.api('/api/bets');
+      document.getElementById('tb').innerHTML = bets.length ? bets.map(b => `<tr>
+        <td>${b.id}</td><td><a href="/match?id=${b.matchId}">${App.esc(b.matchLabel)}</a></td><td>${App.esc(b.pickLabel)}</td>
+        <td>${b.stake}</td><td>${b.odds}</td><td><span class="badge ${b.status}">${b.status}</span></td>
+        <td>${b.payout == null ? '–' : b.payout}</td>
+        <td>${b.placedBy === 'user' ? 'You' : '<span class="badge ai">AI</span>'}</td><td class="muted small">${App.fmtTime(b.createdAt)}</td></tr>`).join('')
+        : '<tr><td colspan="9" class="empty">No bets yet. Head to the dashboard!</td></tr>';
+    }
+    App.requireAuth().then(() => { load(); setInterval(load, 8000); });
+  </script>
+</body>
+</html>

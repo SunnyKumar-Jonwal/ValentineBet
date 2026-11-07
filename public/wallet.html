@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Wallet — ValentineBet</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>💰 Wallet</h1>
+    <div class="grid grid-2">
+      <div class="card">
+        <div class="muted small">Balance (play credits)</div>
+        <div class="stat green" id="bal">–</div>
+        <form id="dep" class="row" style="margin-top:.8rem">
+          <input name="amount" type="number" min="1" max="1000" value="100" style="max-width:140px">
+          <button class="btn-green">Add free credits</button>
+        </form>
+      </div>
+      <div class="card">
+        <h3>Send credits to a friend</h3>
+        <form id="tr">
+          <label>Username</label><input name="to" required>
+          <label>Amount</label><input name="amount" type="number" min="1" required>
+          <div class="row" style="margin-top:.7rem"><button class="btn-primary">Send</button><span class="error" id="terr"></span></div>
+        </form>
+      </div>
+    </div>
+    <div class="section card table-wrap">
+      <h2>Transfer history</h2>
+      <p class="muted small">Transfers marked <span class="badge ai">AI</span> were executed by BetBuddy.</p>
+      <table><thead><tr><th>#</th><th>From</th><th>To</th><th>Amount</th><th>Via</th><th>Time</th></tr></thead><tbody id="tb"></tbody></table>
+    </div>
+  </div>
+  <script src="/js/common.js"></script>
+  <script>
+    async function load() {
+      const [{ user }, { transfers }] = await Promise.all([App.api('/api/me'), App.api('/api/wallet/transfers')]);
+      App.setBalance(user.balance);
+      document.getElementById('bal').textContent = user.balance.toFixed(2);
+      document.getElementById('tb').innerHTML = transfers.length ? transfers.map(t => `<tr><td>${t.id}</td><td>@${App.esc(t.from)}</td><td>@${App.esc(t.to)}</td>
+        <td style="color:${t.from === user.username ? 'var(--red)' : 'var(--green)'}">${t.from === user.username ? '-' : '+'}${t.amount}</td>
+        <td>${t.via === 'user' ? 'You' : '<span class="badge ai">AI</span>'}</td><td class="muted small">${App.fmtTime(t.createdAt)}</td></tr>`).join('')
+        : '<tr><td colspan="6" class="empty">No transfers yet.</td></tr>';
+    }
+    App.requireAuth().then(() => {
+      load();
+      document.getElementById('dep').onsubmit = async e => {
+        e.preventDefault();
+        try { const r = await App.api('/api/wallet/deposit', { method: 'POST', body: { amount: +e.target.amount.value } }); App.toast('Credits added', 'ok'); load(); }
+        catch (err) { App.toast(err.message, 'err'); }
+      };
+      document.getElementById('tr').onsubmit = async e => {
+        e.preventDefault();
+        document.getElementById('terr').textContent = '';
+        try { await App.api('/api/wallet/transfer', { method: 'POST', body: { to: e.target.to.value, amount: +e.target.amount.value } }); e.target.reset(); App.toast('Sent!', 'ok'); load(); }
+        catch (err) { document.getElementById('terr').textContent = err.message; }
+      };
+    });
+  </script>
+</body>
+</html>

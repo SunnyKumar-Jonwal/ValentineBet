@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Log in — ValentineBet</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="container">
+    <div class="card auth-box">
+      <h1>Log in</h1>
+      <p class="muted">Welcome back to Valentine<b style="color:var(--accent)">Bet</b>.</p>
+      <form id="f">
+        <label>Username</label><input name="username" autocomplete="username" required>
+        <label>Password</label><input name="password" type="password" autocomplete="current-password" required>
+        <div style="margin-top:1rem" class="row"><button class="btn-primary" type="submit">Log in</button><a href="/register">Create account</a></div>
+        <div class="error" id="err"></div>
+      </form>
+      <details style="margin-top:1rem" class="small muted">
+        <summary>Demo accounts</summary>
+        <div class="mono" style="margin-top:.5rem">alice / alice123 (victim)<br>mallory / mallory123 (attacker)<br>bob / bob123<br>admin / admin123</div>
+      </details>
+    </div>
+  </div>
+  <script src="/js/common.js"></script>
+  <script>
+    document.getElementById('f').onsubmit = async e => {
+      e.preventDefault();
+      const fd = Object.fromEntries(new FormData(e.target));
+      try {
+        await App.api('/api/login', { method: 'POST', body: fd });
+        const next = App.qs('next');
+        location.href = next && next.startsWith('/') && !next.startsWith('//') ? next : '/dashboard';
+      } catch (err) { document.getElementById('err').textContent = err.message; }
+    };
+  </script>
+</body>
+</html>

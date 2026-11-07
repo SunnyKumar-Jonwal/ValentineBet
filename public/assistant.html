@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BetBuddy AI — ValentineBet</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="container">
+    <div class="chat-layout">
+      <div class="card chat">
+        <div class="row space">
+          <h2 style="margin:0">🤖 BetBuddy AI</h2>
+          <div class="row"><span class="badge" id="prov">…</span><button class="btn-sm" id="reset">New chat</button></div>
+        </div>
+        <div class="messages" id="msgs"></div>
+        <form class="chat-input" id="f">
+          <textarea id="in" placeholder="Ask about matches, odds, your bets… (Enter to send, Shift+Enter for new line)"></textarea>
+          <button class="btn-primary" id="send">Send</button>
+        </form>
+        <div class="chips" id="chips"></div>
+      </div>
+      <div>
+        <div class="card">
+          <h3>🛡️ Pending approvals</h3>
+          <p class="muted small">With “Human-in-the-loop” on, risky AI actions wait here.</p>
+          <div id="pending"><div class="empty small">None</div></div>
+        </div>
+        <div class="card" style="margin-top:1rem">
+          <h3>Active defences</h3>
+          <div id="defs" class="small"></div>
+          <a class="small" href="/lab">Configure in the Injection Lab →</a>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="/js/common.js"></script>
+  <script>
+    const msgs = document.getElementById('msgs');
+    const input = document.getElementById('in');
+    let CHIPS = ['Show live matches', 'Show upcoming matches', 'What is my balance?', 'Show my bets',
+      'Summarise the discussion for match {M}', 'Show me the profile of mallory', 'Bet 20 on A in match {M}'];
+
+    function add(cls, text) {
+      const d = document.createElement('div');
+      d.className = cls;
+      d.textContent = text;
+      msgs.appendChild(d);
+      msgs.scrollTop = msgs.scrollHeight;
+      return d;
+    }
+    function addTrace(calls) {
+      if (!calls || !calls.length) return;
+      const d = document.createElement('div');
+      d.className = 'trace';
+      d.innerHTML = '🔧 Agent tool calls:\n' + calls.map(c =>
+        `<span class="${c.status}">[${c.status}]</span> ${App.esc(c.tool)}(${App.esc(JSON.stringify(c.args || {}))})${c.note ? ' — ' + App.esc(c.note) : ''}`).join('\n');
+      msgs.appendChild(d);
+      msgs.scrollTop = msgs.scrollHeight;
+    }
+
+    async function loadPending() {
+      const { pending } = await App.api('/api/ai/pending');
+      const box = document.getElementById('pending');
+      box.innerHTML = pending.length ? pending.map(p => `<div class="payload">
+        <b>#${p.id} ${App.esc(p.tool)}</b>${p.taintedContext ? ' <span class="badge lost">after untrusted data</span>' : ''}
+        <pre>${App.esc(JSON.stringify(p.args, null, 2))}</pre>
+        <div class="row"><button class="btn-sm btn-green" data-a="approve" data-id="${p.id}">Approve</button><button class="btn-sm btn-red" data-a="deny" data-id="${p.id}">Deny</button></div>
+      </div>`).join('') : '<div class="empty small">None</div>';
+    }
+    document.getElementById('pending').onclick = async e => {
+      const b = e.target.closest('[data-a]');
+      if (!b) return;
+      try {
+        const r = await App.api(`/api/ai/pending/${b.dataset.id}/${b.dataset.a}`, { method: 'POST' });
+        App.setBalance(r.balance);
+        add('trace', `👤 You ${b.dataset.a === 'approve' ? 'approved' : 'denied'} action #${b.dataset.id} (${r.action.tool})${r.result && r.result.error ? ' — failed: ' + r.result.error : ''}`);
+        loadPending();
+      } catch (err) { App.toast(err.message, 'err'); }
+    };
+
+    async function send(text) {
+      text = text.trim();
+      if (!text) return;
+      add('msg user', text);
+      input.value = '';
+      const btn = document.getElementById('send');
+      btn.disabled = true;
+      const thinking = add('msg bot muted', 'Thinking…');
+      try {
+        const r = await App.api('/api/ai/chat', { method: 'POST', body: { message: text } });
+        thinking.remove();
+        addTrace(r.toolCalls);
+        add('msg bot' + (r.error ? ' err' : ''), r.reply);
+        App.setBalance(r.balance);
+        if (r.pending && r.pending.length) loadPending();
+      } catch (err) {
+        thinking.remove();
+        add('msg bot err', err.message);
+      } finally { btn.disabled = false; input.focus(); }
+    }
+
+    App.requireAuth().then(async () => {
+      const [{ provider, model }, { settings }, { matches }] = await Promise.all([App.api('/api/ai/info'), App.api('/api/lab/settings'), App.api('/api/matches')]);
+      const liveMatch = matches.find(m => m.status === 'live') || matches.find(m => m.status === 'upcoming') || matches[0];
+      CHIPS = CHIPS.map(c => c.split('{M}').join(liveMatch ? liveMatch.id : 1));
+      document.getElementById('prov').textContent = `${provider} · ${model}`;
+      const on = Object.entries(settings.defenses).filter(([, v]) => v).map(([k]) => k);
+      document.getElementById('defs').innerHTML = (on.length ? on.map(k => `<span class="badge won" style="margin:2px">${k}</span>`).join('') : '<span class="badge lost">NONE — fully vulnerable</span>')
+        + (settings.scenarios.poisonedToolMetadata ? '<div style="margin-top:.4rem"><span class="badge lost">⚠ poisoned tool server active</span></div>' : '');
+      add('msg bot', `Hi ${App.user.username}! I'm BetBuddy. I can show matches and odds, summarise match discussions, look up profiles, place bets and move credits for you.`);
+      document.getElementById('chips').innerHTML = CHIPS.map(c => `<span class="chip">${App.esc(c)}</span>`).join('');
+      document.getElementById('chips').onclick = e => { if (e.target.classList.contains('chip')) send(e.target.textContent); };
+      document.getElementById('f').onsubmit = e => { e.preventDefault(); send(input.value); };
+      input.onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(input.value); } };
+      document.getElementById('reset').onclick = async () => { await App.api('/api/ai/reset', { method: 'POST' }); msgs.innerHTML = ''; add('msg bot', 'New conversation started.'); };
+      loadPending();
+      const q = App.qs('q');
+      if (q) send(q);
+    });
+  </script>
+</body>
+</html>

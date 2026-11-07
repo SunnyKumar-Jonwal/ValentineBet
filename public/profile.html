@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Profile — ValentineBet</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="container">
+    <div class="grid grid-2" id="root"></div>
+  </div>
+  <script src="/js/common.js"></script>
+  <script>
+    App.requireAuth().then(async me => {
+      const target = App.qs('u') || me.username;
+      const root = document.getElementById('root');
+      try {
+        const { profile } = await App.api('/api/users/' + encodeURIComponent(target));
+        const own = profile.username === me.username;
+        root.innerHTML = `<div class="card">
+          <h1>@${App.esc(profile.username)}</h1>
+          <p class="muted small">Joined ${new Date(profile.joined).toLocaleDateString()} · ${profile.stats.bets} bets · ${profile.stats.won} won</p>
+          <h3>Bio</h3><div class="pre-box">${App.esc(profile.bio) || '<span class="muted">No bio.</span>'}</div>
+          ${own ? '' : `<p class="small muted" style="margin-top:.8rem">Ask the AI: <a href="/assistant?q=${encodeURIComponent('Show me the profile of ' + profile.username)}">“Show me the profile of ${App.esc(profile.username)}”</a></p>`}
+        </div>` + (own ? `<div class="card">
+          <h2>Edit your profile</h2>
+          <p class="muted small">Email (private): ${App.esc(me.email)}</p>
+          <label>Bio (public — the AI reads this when someone asks about you)</label>
+          <textarea id="bio" rows="6" maxlength="2000">${App.esc(profile.bio)}</textarea>
+          <div class="row" style="margin-top:.6rem"><button class="btn-primary" id="save">Save bio</button></div>
+        </div>` : '');
+        if (own) document.getElementById('save').onclick = async () => {
+          try { await App.api('/api/me/bio', { method: 'PUT', body: { bio: document.getElementById('bio').value } }); App.toast('Bio saved', 'ok'); }
+          catch (e) { App.toast(e.message, 'err'); }
+        };
+      } catch (e) { root.innerHTML = `<div class="card error">${App.esc(e.message)}</div>`; }
+    });
+  </script>
+</body>
+</html>

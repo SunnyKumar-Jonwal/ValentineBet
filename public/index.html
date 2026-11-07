@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ValentineBet — Injection Lab</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="container">
+    <div class="hero">
+      <h1>Valentine<span>Bet</span></h1>
+      <p>Live matches, real-time odds and an AI betting assistant. Built as a <b>deliberately vulnerable lab</b> for studying prompt injection in agentic AI pipelines.</p>
+      <div class="row" style="justify-content:center">
+        <a class="btn btn-primary" href="/login">Log in</a>
+        <a class="btn" href="/register">Create account</a>
+      </div>
+      <p style="margin-top:2rem" class="warn">⚠️ Educational use only. Play-money credits, runs on localhost. Never deploy this publicly.</p>
+    </div>
+    <div class="grid grid-3" id="preview"></div>
+  </div>
+  <script src="/js/common.js"></script>
+  <script>
+    (async () => {
+      if (await App.loadUser()) return (location.href = '/dashboard');
+      const { matches } = await App.api('/api/matches?status=live');
+      document.getElementById('preview').innerHTML = matches.slice(0, 3).map(m => App.matchCard(m)).join('');
+      document.getElementById('preview').onclick = e => { if (e.target.closest('[data-bet]')) location.href = '/login'; };
+    })();
+  </script>
+</body>
+</html>

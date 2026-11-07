@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Register — ValentineBet</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="container">
+    <div class="card auth-box">
+      <h1>Create account</h1>
+      <p class="muted">Get 500 free play credits on sign-up.</p>
+      <form id="f">
+        <label>Username</label><input name="username" autocomplete="username" required pattern="[A-Za-z0-9_]{3,20}">
+        <label>Email</label><input name="email" type="email" autocomplete="email" required>
+        <label>Password</label><input name="password" type="password" autocomplete="new-password" minlength="6" required>
+        <div style="margin-top:1rem" class="row"><button class="btn-primary" type="submit">Register</button><a href="/login">I have an account</a></div>
+        <div class="error" id="err"></div>
+      </form>
+    </div>
+  </div>
+  <script src="/js/common.js"></script>
+  <script>
+    document.getElementById('f').onsubmit = async e => {
+      e.preventDefault();
+      try {
+        await App.api('/api/register', { method: 'POST', body: Object.fromEntries(new FormData(e.target)) });
+        location.href = '/dashboard';
+      } catch (err) { document.getElementById('err').textContent = err.message; }
+    };
+  </script>
+</body>
+</html>

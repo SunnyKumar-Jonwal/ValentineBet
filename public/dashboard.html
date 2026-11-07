@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dashboard — ValentineBet</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="container">
+    <div class="grid grid-2" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
+      <div class="card"><div class="muted small">Balance</div><div class="stat green" id="s-bal">–</div></div>
+      <div class="card"><div class="muted small">Open bets</div><div class="stat" id="s-open">–</div></div>
+      <div class="card"><div class="muted small">Live now</div><div class="stat" id="s-live">–</div></div>
+      <div class="card"><div class="muted small">Ask the AI</div><a class="btn btn-primary" style="margin-top:.4rem" href="/assistant">🤖 Open BetBuddy</a></div>
+    </div>
+
+    <div class="section"><div class="row space"><h2>🔴 Live matches</h2><span class="muted small">auto-refreshes every 5s</span></div><div class="grid grid-3" id="live"></div></div>
+    <div class="section"><h2>⏱ Upcoming</h2><div class="grid grid-3" id="upcoming"></div></div>
+    <div class="section"><h2>🏁 Recent results</h2><div class="grid grid-3" id="finished"></div></div>
+  </div>
+  <script src="/js/common.js"></script>
+  <script>
+    let matches = [];
+    async function refresh() {
+      const [{ matches: ms }, { bets }, { user }] = await Promise.all([App.api('/api/matches'), App.api('/api/bets'), App.api('/api/me')]);
+      matches = ms;
+      App.setBalance(user.balance);
+      document.getElementById('s-bal').textContent = user.balance.toFixed(2);
+      document.getElementById('s-open').textContent = bets.filter(b => b.status === 'pending').length;
+      for (const st of ['live', 'upcoming', 'finished']) {
+        const list = ms.filter(m => m.status === st);
+        document.getElementById(st).innerHTML = list.length ? list.map(m => App.matchCard(m)).join('') : '<div class="empty">Nothing here right now.</div>';
+      }
+      document.getElementById('s-live').textContent = ms.filter(m => m.status === 'live').length;
+    }
+    App.requireAuth().then(() => {
+      App.bindOdds(document.querySelector('.container'), () => matches);
+      refresh();
+      setInterval(() => { if (!document.querySelector('.modal-bg.open')) refresh(); }, 5000);
+    });
+  </script>
+</body>
+</html>
